@@ -11,6 +11,11 @@ st.set_page_config(
     layout="wide"
 )
 
+# ---------------- SECURITY CHECK ---------------- #
+if "GEMINI_API_KEY" not in st.secrets:
+    st.error("Gemini API Key not configured.")
+    st.stop()
+
 # ---------------- CSS ---------------- #
 st.markdown("""
 <style>
@@ -18,7 +23,7 @@ st.markdown("""
     background: linear-gradient(135deg,#0f172a,#1e293b,#0f766e);
 }
 
-h1,h2,h3,p,label {
+h1,h2,h3,h4,p,label {
     color:white !important;
 }
 
@@ -41,7 +46,7 @@ div.stButton > button{
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- MODEL CACHING ---------------- #
+# ---------------- MODEL ---------------- #
 @st.cache_resource
 def load_model():
     return train_model()
@@ -54,16 +59,27 @@ st.caption(
     "A Generative Digital Twin for understanding, tracking and reducing personal carbon footprint."
 )
 
+# ---------------- ACCESSIBILITY ---------------- #
+st.header("🌱 Welcome to Carbon Twin AI")
+
 st.markdown("""
-### How to Use
+### Instructions
 
+This application helps users understand, track and reduce their carbon footprint.
+
+#### Steps
 1. Enter your lifestyle information.
-2. Generate your Digital Carbon Twin.
-3. Explore future scenarios.
-4. Receive AI-powered sustainability recommendations.
+2. Click **Generate My Carbon Twin**.
+3. Review your sustainability score.
+4. Explore future simulations.
+5. Read personalized AI recommendations.
 
-This platform helps individuals understand, track and reduce their carbon footprint through simple actions and personalized insights.
+All fields include descriptions to assist first-time users.
 """)
+
+st.info(
+    "Carbon Twin AI helps individuals understand, track and reduce their carbon footprint through simple actions and personalized insights using Machine Learning and Generative AI."
+)
 
 # ---------------- INPUTS ---------------- #
 st.subheader("📝 Lifestyle Inputs")
@@ -71,68 +87,95 @@ st.subheader("📝 Lifestyle Inputs")
 col1, col2 = st.columns(2)
 
 with col1:
+
     car_km = st.number_input(
         "🚗 Car Travel (km/month)",
-        0,
-        help="Approximate monthly distance travelled by car."
+        min_value=0,
+        help="Approximate distance travelled by car every month."
     )
 
     bike_km = st.number_input(
         "🏍 Bike Travel (km/month)",
-        0
+        min_value=0,
+        help="Approximate distance travelled by bike every month."
     )
 
     meat_meals = st.number_input(
         "🍗 Meat Meals/month",
-        0,
-        help="Number of meat-based meals consumed per month."
+        min_value=0,
+        help="Number of meat-based meals consumed every month."
     )
 
     electricity_units = st.number_input(
         "⚡ Electricity Units/month",
-        0,
-        help="Approximate monthly electricity consumption."
+        min_value=0,
+        help="Monthly electricity consumption in units."
     )
 
     clothes = st.number_input(
         "👕 Clothes Purchased/month",
-        0
+        min_value=0,
+        help="Approximate number of clothes purchased per month."
     )
 
 with col2:
+
     bus_km = st.number_input(
         "🚌 Bus Travel (km/month)",
-        0
+        min_value=0,
+        help="Approximate distance travelled by bus every month."
     )
 
     metro_km = st.number_input(
         "🚇 Metro Travel (km/month)",
-        0
+        min_value=0,
+        help="Approximate distance travelled by metro every month."
     )
 
     veg_meals = st.number_input(
         "🥗 Vegetarian Meals/month",
-        0
+        min_value=0,
+        help="Number of vegetarian meals consumed every month."
     )
 
     ac_hours = st.number_input(
         "❄ AC Hours/day",
-        0
+        min_value=0,
+        help="Average number of hours the air conditioner runs each day."
     )
 
     online_orders = st.number_input(
         "📦 Online Orders/month",
-        0,
-        help="Approximate number of online orders placed monthly."
+        min_value=0,
+        help="Number of online purchases made every month."
     )
 
     plastic_items = st.number_input(
         "♻ Plastic Items/month",
-        0
+        min_value=0,
+        help="Approximate number of plastic items used every month."
     )
 
 # ---------------- BUTTON ---------------- #
 if st.button("🌍 Generate My Carbon Twin"):
+
+    inputs = [
+        car_km,
+        bike_km,
+        bus_km,
+        metro_km,
+        meat_meals,
+        veg_meals,
+        electricity_units,
+        ac_hours,
+        clothes,
+        online_orders,
+        plastic_items
+    ]
+
+    if any(x < 0 for x in inputs):
+        st.error("Inputs cannot be negative.")
+        st.stop()
 
     user_data = {
         "car_km": car_km,
@@ -148,10 +191,10 @@ if st.button("🌍 Generate My Carbon Twin"):
         "plastic_items": plastic_items
     }
 
-    # Current footprint
+    # Current Footprint
     total = calculate_carbon(user_data)
 
-    # RandomForest prediction
+    # Random Forest Prediction
     rf_prediction = model.predict([[
         car_km,
         meat_meals,
@@ -159,8 +202,9 @@ if st.button("🌍 Generate My Carbon Twin"):
         online_orders
     ]])[0]
 
-    # Keep prediction realistic
     prediction = total + (rf_prediction * 0.15)
+
+    prediction = min(prediction, 10000)
 
     # Scenarios
     scenario1 = model.predict([[
@@ -184,7 +228,11 @@ if st.button("🌍 Generate My Carbon Twin"):
         online_orders
     ]])[0]
 
-    # Sustainability score
+    scenario1 = min(scenario1, 10000)
+    scenario2 = min(scenario2, 10000)
+    scenario3 = min(scenario3, 10000)
+
+    # Sustainability Score
     score = max(0, min(100, int(100 - prediction / 5)))
 
     improved, saved = simulate_improvement(total)
@@ -214,6 +262,10 @@ if st.button("🌍 Generate My Carbon Twin"):
 
     st.progress(score / 100)
 
+    st.caption(
+        "Lower predicted carbon footprints and higher sustainability scores indicate more environmentally friendly lifestyle choices."
+    )
+
     # ---------------- SCENARIOS ---------------- #
     st.subheader("🔮 Future Simulations")
 
@@ -237,7 +289,6 @@ if st.button("🌍 Generate My Carbon Twin"):
             f"{scenario3:.2f} kg"
         )
 
-    # ---------------- IMPACT ---------------- #
     reduction = prediction - min(
         scenario1,
         scenario2,
@@ -287,10 +338,17 @@ if st.button("🌍 Generate My Carbon Twin"):
 
     except Exception:
         st.warning(
-            "Unable to generate Gemini recommendations right now."
+            "AI recommendations are temporarily unavailable."
         )
 
-    # ---------------- ALIGNMENT ---------------- #
+    # ---------------- ABOUT ---------------- #
+    with st.expander("ℹ About Carbon Twin AI"):
+        st.write("""
+Carbon Twin AI creates a digital twin of an individual's lifestyle and uses
+Machine Learning and Generative AI to predict future carbon footprints and
+recommend sustainable actions.
+        """)
+
     st.info(
-        "Carbon Twin AI helps individuals understand, track and reduce their carbon footprint through simple actions and personalized insights using Machine Learning and Generative AI."
+        "🔒 This application does not store personal information and uses secure API-based AI recommendations."
     )
